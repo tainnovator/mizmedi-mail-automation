@@ -1,0 +1,26 @@
+# === 보안: 절대 커밋 금지 ===
+# 인증 관련 파일 전체 (OAuth 클라이언트 JSON, 토큰 등)
+credentials/
+
+# 환경변수 (비밀번호·API 키·대상 주소)
+.env
+
+# === Python ===
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# === 실행 산출물 ===
+# 생성된 요약 리포트 / 초안 / 로그
+reports/
+data/
+logs/
+*.log
+
+# === OS / 에디터 ===
+.DS_Store
+.idea/
+.vscode/

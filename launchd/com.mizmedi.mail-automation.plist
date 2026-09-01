@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  미즈메디 메일 자동화 - launchd 스케줄 (매일 오전 8시 1회)
+
+  설치:
+    cp launchd/com.mizmedi.mail-automation.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.mizmedi.mail-automation.plist
+
+  경로가 /Users/tai/Projects/mizmedi-mail-automation 이 아니면 아래 3곳의
+  절대경로를 모두 바꿔야 한다: ProgramArguments 의 cd 대상, WorkingDirectory,
+  StandardOutPath/StandardErrorPath.
+
+  로그: logs/<YYYY-MM-DD>.log (파이프라인 출력), logs/launchd.err.log
+  (쉘/launchd 레벨 오류). logs/ 폴더는 미리 만들어 둔다: mkdir -p logs
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.mizmedi.mail-automation</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>cd /Users/tai/Projects/mizmedi-mail-automation &amp;&amp; exec .venv/bin/python -m scripts.run_daily >> "logs/$(date +%Y-%m-%d).log" 2>&amp;1</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/tai/Projects/mizmedi-mail-automation</string>
+
+    <!-- 매일 08:00 실행 (Hour/Minute 만 지정하면 매일 반복) -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>8</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- load 시점에 즉시 실행하지 않는다 (08:00 에만 실행) -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <!-- 쉘/launchd 레벨 오류 대비 (파이프라인 자체 출력은 날짜별 로그로 감) -->
+    <key>StandardOutPath</key>
+    <string>/Users/tai/Projects/mizmedi-mail-automation/logs/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/tai/Projects/mizmedi-mail-automation/logs/launchd.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

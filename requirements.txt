@@ -1,0 +1,13 @@
+# Gmail API 인증 및 호출
+google-api-python-client>=2.100.0
+google-auth-oauthlib>=1.2.0
+google-auth-httplib2>=0.2.0
+
+# 환경변수 로딩
+python-dotenv>=1.0.0
+
+# 메일 분류용 LLM
+anthropic>=0.40.0
+
+# 카카오 알림 등 이후 단계에서 사용 (지금은 미사용, 미리 고정)
+requests>=2.31.0
