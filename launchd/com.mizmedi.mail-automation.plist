@@ -2,7 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  미즈메디 메일 자동화 - launchd 스케줄 (매일 오전 8시 1회)
+  미즈메디 메일 자동화 - launchd 스케줄
+
+  오전 8시 ~ 오후 5시, 매 정시(1시간 간격, 총 10회)에 scripts/run_daily 를
+  실행한다. 매 정시는 "체크"(가져오기+분류+회신초안, 알림 없음)를 하고,
+  그중 09/13/17시(config.NOTIFY_HOURS)에는 체크에 더해 "미전송분 카카오 알림"
+  1회를 보낸다. 17시 이후 ~ 다음날 8시 사이엔 아무것도 하지 않는다.
 
   설치:
     cp launchd/com.mizmedi.mail-automation.plist ~/Library/LaunchAgents/
@@ -30,16 +35,23 @@
     <key>WorkingDirectory</key>
     <string>/Users/tai/Projects/mizmedi-mail-automation</string>
 
-    <!-- 매일 08:00 실행 (Hour/Minute 만 지정하면 매일 반복) -->
+    <!-- 08:00 ~ 17:00, 매 정시 실행 (10회). 시간대 제한을 위해 개별 dict 로 나열.
+         알림은 그중 09/13/17시에만 (config.NOTIFY_HOURS). -->
     <key>StartCalendarInterval</key>
-    <dict>
-        <key>Hour</key>
-        <integer>8</integer>
-        <key>Minute</key>
-        <integer>0</integer>
-    </dict>
+    <array>
+        <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>10</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>11</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>13</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>14</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>15</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>16</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>0</integer></dict>
+    </array>
 
-    <!-- load 시점에 즉시 실행하지 않는다 (08:00 에만 실행) -->
+    <!-- load 시점에 즉시 실행하지 않는다 (정시에만 실행) -->
     <key>RunAtLoad</key>
     <false/>
 

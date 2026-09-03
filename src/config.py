@@ -49,6 +49,9 @@ TOKEN_PATH = CREDENTIALS_DIR / "token.json"
 
 # 일반 설정 (.env)
 TARGET_GMAIL_ADDRESS = os.getenv("TARGET_GMAIL_ADDRESS", "")
+# 회신 초안(임시보관함)을 만들 계정. 재인증 시 이 계정으로 로그인해야 한다.
+# 파이프라인은 로그인 계정이 이 값과 다르면 초안 생성을 거부한다(오배치 방지).
+GMAIL_DRAFT_ACCOUNT = os.getenv("GMAIL_DRAFT_ACCOUNT", "tai.roh@mizmedi.com")
 GMAIL_QUERY = os.getenv("GMAIL_QUERY") or "in:inbox"
 REPORT_DIR = os.getenv("REPORT_DIR", "reports")
 REPORT_PATH = ROOT_DIR / REPORT_DIR
@@ -59,8 +62,26 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 CLASSIFIER_MODEL = os.getenv("CLASSIFIER_MODEL", "claude-sonnet-4-6")
 DRAFTER_MODEL = os.getenv("DRAFTER_MODEL") or CLASSIFIER_MODEL
 
-# 처리 완료한 메일 ID 기록 파일
+# 처리한 메일 상태 기록 파일 (id → 메타데이터 + notified 플래그)
 PROCESSED_IDS_PATH = DATA_DIR / "processed_ids.json"
+
+# 처리 기록 보존 기간(일). 이보다 오래된 항목은 큰 필드(초안 본문·요약 등)를
+# 떼고 id + notified 만 남긴다 (dedup 은 계속 보장).
+PROCESSED_RETENTION_DAYS = int(os.getenv("PROCESSED_RETENTION_DAYS", "60"))
+
+
+def _parse_hours(raw: str) -> frozenset[int]:
+    hours = set()
+    for part in raw.split(","):
+        part = part.strip()
+        if part.isdigit() and 0 <= int(part) <= 23:
+            hours.add(int(part))
+    return frozenset(hours)
+
+
+# 카카오 알림을 보내는 정시 (그 외 정시엔 체크만 하고 알림 없음).
+# 알림 슬롯을 놓치면 다음 실행이 "지난 슬롯 이후 미전송분"을 따라잡는다.
+NOTIFY_HOURS = _parse_hours(os.getenv("NOTIFY_HOURS", "9,13,17"))
 
 # 카카오톡 알림
 KAKAO_REST_API_KEY = os.getenv("KAKAO_REST_API_KEY", "")

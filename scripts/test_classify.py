@@ -25,7 +25,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.classifier import classify  # noqa: E402
-from src.mail_fetcher import fetch_new_messages, mark_processed  # noqa: E402
+from src.mail_fetcher import fetch_new_messages  # noqa: E402
+from src.processed_log import mark_processed  # noqa: E402
 
 
 def _clip(text: str, width: int) -> str:

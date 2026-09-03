@@ -1,16 +1,17 @@
 """
 카카오톡 알림 단독 테스트.
 
-동작
-  - 오늘 날짜의 리포트 요약(reports/<날짜>-mail-report.summary.json)을 읽는다.
-  - 없으면 안내 후, --run-pipeline 옵션이 있으면 즉석에서 파이프라인을 돌려
-    요약을 만든다.
-  - 요약을 짧은 메시지로 만들어 "나에게 보내기" 로 카카오톡 전송한다.
+현재 processed_ids.json 에서 아직 알림에 포함되지 않은 항목
+(processed_log.pending_notification())을 모아 카카오 메시지로 만들어 보고,
+원하면 실제로 "나에게 보내기" 로 전송한다.
 
 실행 (프로젝트 루트에서):
-  .venv/bin/python -m scripts.test_kakao_notify
-  .venv/bin/python -m scripts.test_kakao_notify --run-pipeline   # 요약 없으면 새로 생성
-  .venv/bin/python -m scripts.test_kakao_notify --dry-run        # 전송 안 하고 메시지만 출력
+  .venv/bin/python -m scripts.test_kakao_notify --dry-run   # 메시지만 출력
+  .venv/bin/python -m scripts.test_kakao_notify             # 실제 전송
+  .venv/bin/python -m scripts.test_kakao_notify --run-check --dry-run
+        # 먼저 매시간 체크를 1회 수행(새 메일 반영)한 뒤 미전송분을 미리보기
+
+--dry-run 이 아니면 전송 후 해당 항목들을 notified=True 로 갱신한다.
 
 사전: scripts/kakao_auth.py 로 최초 인증 완료 + .env 에 KAKAO_REFRESH_TOKEN 입력.
 """
@@ -19,84 +20,68 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.kakao_notify import KakaoError, format_summary_message, send_to_me  # noqa: E402
-from src.report import load_summary  # noqa: E402
+from src import processed_log  # noqa: E402
+from src.kakao_notify import (  # noqa: E402
+    KakaoError,
+    format_pending_notification,
+    send_to_me,
+)
 
 
-def _build_summary_via_pipeline() -> dict:
-    from src.classifier import classify
-    from src.gmail_auth import get_gmail_service
-    from src.mail_fetcher import fetch_new_messages
-    from src.report import (
-        MailResult,
-        build_report,
-        save_report,
-        save_summary,
-        summarize,
-    )
-    from src.reply_drafter import assess_reply
+def _run_check_once() -> None:
+    """run_daily 의 체크 단계만 1회 수행 (알림·슬롯 판정 없음)."""
+    import argparse as _a
+    from datetime import date
 
-    service = get_gmail_service()
-    mails = fetch_new_messages(max_results=30, service=service)
-    results: list[MailResult] = []
-    for m in mails:
-        c = classify(m)
-        r = assess_reply(m, service=service) if c.category == "업무" else None
-        results.append(MailResult(mail=m, classification=c, reply=r))
+    from scripts.run_daily import _entry, _run_check
 
+    ns = _a.Namespace(limit=50, no_mark=False, no_notify=True, notify=False)
     today = date.today()
-    save_report(build_report(results, report_date=today), report_date=today)
-    save_summary(results, report_date=today)
-    return summarize(results, report_date=today)
+    results = _run_check(ns, today)
+    if results:
+        processed_log.record([_entry(r, today) for r in results])
+    print(f"체크 완료 — 새로 처리 {len(results)}건\n")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="카카오톡 알림 테스트")
     parser.add_argument(
-        "--run-pipeline",
-        action="store_true",
-        help="오늘 요약이 없으면 파이프라인을 돌려 새로 생성",
+        "--run-check", action="store_true", help="먼저 체크를 1회 수행"
     )
     parser.add_argument(
-        "--dry-run", action="store_true", help="전송하지 않고 메시지 내용만 출력"
+        "--dry-run", action="store_true", help="전송하지 않고 메시지만 출력"
     )
     args = parser.parse_args()
 
-    try:
-        summary = load_summary()
-        print(f"오늘 리포트 요약을 찾았습니다: {summary['date']}")
-    except FileNotFoundError:
-        if not args.run_pipeline:
-            print(
-                "오늘 날짜의 리포트 요약이 없습니다.\n"
-                "  - 먼저 `.venv/bin/python -m scripts.run_pipeline` 를 실행하거나\n"
-                "  - 이 스크립트에 --run-pipeline 을 붙여 실행하세요."
-            )
-            return 1
-        print("오늘 요약이 없어 파이프라인을 실행합니다...\n")
-        summary = _build_summary_via_pipeline()
+    if args.run_check:
+        _run_check_once()
 
-    message = format_summary_message(summary)
-    print("\n--- 보낼 메시지 ---")
+    pending = processed_log.pending_notification()
+    if not pending:
+        print("미전송 항목이 없습니다. (--run-check 로 새 메일을 먼저 반영해 보세요)")
+        return 0
+
+    message = format_pending_notification(pending)
+    print(f"--- 미전송 {len(pending)}건 → 보낼 메시지 ({len(message)}자) ---")
     print(message)
-    print("------------------\n")
+    print("-" * 40)
 
     if args.dry_run:
-        print("(--dry-run: 전송하지 않았습니다.)")
+        print("\n(--dry-run: 전송하지 않았습니다.)")
         return 0
 
     try:
         send_to_me(message)
     except KakaoError as e:
-        print(f"전송 실패: {e}")
+        print(f"\n전송 실패: {e}")
         return 1
 
-    print("카카오톡으로 전송했습니다. 휴대폰에서 확인해 보세요.")
+    processed_log.mark_notified([p["id"] for p in pending])
+    print(f"\n전송 완료. {len(pending)}건을 notified=True 로 갱신했습니다.")
     return 0
 
 

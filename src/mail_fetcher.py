@@ -2,9 +2,9 @@
 받은편지함에서 아직 처리하지 않은 새 메일을 가져오는 모듈.
 
 - 대상 계정의 받은편지함(INBOX)에서 `GMAIL_QUERY` 조건에 맞는 메일 목록을 조회한다.
-- 이미 처리한 메일은 다시 가져오지 않는다. 처리 완료한 메일 ID는
-  data/processed_ids.json 에 기록해둔다.
-- 각 메일에서 발신자 / 제목 / 본문 요약(스니펫) / 수신 시각을 추출한다.
+- 이미 처리한 메일은 다시 가져오지 않는다 (`processed_log.processed_ids()` 참조).
+- 각 메일에서 발신자 / 제목 / 스니펫 / 수신 시각 / Message-ID 를 추출한다.
+- `fetch_body()` 로 특정 메일의 본문 전체를 개별 조회할 수 있다 (초안 작성용).
 
 읽기 전용이다. 메일을 읽음 처리하거나 수정하거나 발송하지 않는다.
 """
@@ -12,13 +12,13 @@
 from __future__ import annotations
 
 import base64
-import json
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from .config import GMAIL_QUERY, PROCESSED_IDS_PATH
+from .config import GMAIL_QUERY
 from .gmail_auth import get_gmail_service
+from .processed_log import processed_ids
 
 
 @dataclass
@@ -29,41 +29,11 @@ class MailMessage:
     subject: str
     snippet: str
     received_at: datetime  # 로컬 타임존
+    message_id_header: str = ""  # 원본 메일의 Message-ID 헤더 (회신 스레딩용)
 
     @property
     def received_str(self) -> str:
         return self.received_at.strftime("%Y-%m-%d %H:%M")
-
-
-# ---------------------------------------------------------------------------
-# 처리 기록 (data/processed_ids.json)
-# ---------------------------------------------------------------------------
-def load_processed_ids() -> set[str]:
-    if not PROCESSED_IDS_PATH.exists():
-        return set()
-    try:
-        data = json.loads(PROCESSED_IDS_PATH.read_text(encoding="utf-8"))
-        return set(data.get("processed_ids", []))
-    except (json.JSONDecodeError, OSError):
-        return set()
-
-
-def save_processed_ids(ids: set[str]) -> None:
-    PROCESSED_IDS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "updated_at": datetime.now().isoformat(timespec="seconds"),
-        "processed_ids": sorted(ids),
-    }
-    PROCESSED_IDS_PATH.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-
-
-def mark_processed(ids: list[str] | set[str]) -> None:
-    """주어진 메일 ID들을 처리 완료로 기록한다."""
-    current = load_processed_ids()
-    current.update(ids)
-    save_processed_ids(current)
 
 
 # ---------------------------------------------------------------------------
@@ -87,6 +57,7 @@ def _parse_message(msg: dict) -> MailMessage:
         subject=_header(headers, "Subject") or "(제목 없음)",
         snippet=msg.get("snippet", "").strip(),
         received_at=received,
+        message_id_header=_header(headers, "Message-ID"),
     )
 
 
@@ -97,11 +68,11 @@ def fetch_new_messages(
     """
     받은편지함에서 아직 처리하지 않은 새 메일을 가져온다.
 
-    처리 기록에는 손대지 않는다. 분류/요약 등 후속 처리가 끝난 뒤
-    호출자가 mark_processed() 로 명시적으로 기록해야 한다.
+    처리 기록에는 손대지 않는다. 분류/초안 등 후속 처리가 끝난 뒤
+    호출자가 processed_log.record() 로 명시적으로 기록해야 한다.
     """
     service = service or get_gmail_service()
-    processed = load_processed_ids()
+    processed = processed_ids()
 
     query = f"in:inbox {GMAIL_QUERY}".strip() if "in:inbox" not in GMAIL_QUERY else GMAIL_QUERY
 
@@ -124,7 +95,7 @@ def fetch_new_messages(
                 userId="me",
                 id=ref["id"],
                 format="metadata",
-                metadataHeaders=["From", "Subject", "Date"],
+                metadataHeaders=["From", "Subject", "Date", "Message-ID"],
             )
             .execute()
         )

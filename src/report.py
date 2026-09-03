@@ -58,8 +58,11 @@ def _category_section(category: str, results: list[MailResult]) -> str:
         out.append(f"- 수신 시각: {m.received_str}")
         out.append(f"- 분류 이유: {c.reason} _(방식: {c.method})_")
         if r.reply is not None:
-            mark = "필요" if r.reply.needs_reply else "불필요"
-            out.append(f"- 회신 {mark}: {r.reply.reason}")
+            if r.reply.already_replied:
+                out.append(f"- 회신: ✅ 이미 직접 회신 완료 (초안 생략) — {r.reply.reason}")
+            else:
+                mark = "필요" if r.reply.needs_reply else "불필요"
+                out.append(f"- 회신 {mark}: {r.reply.reason}")
         out.append("")
     return "\n".join(out)
 
@@ -72,8 +75,9 @@ def _draft_section(results: list[MailResult]) -> str:
     ]
     out = ["## 회신 초안", ""]
     out.append(
-        "> ⚠️ 아래 초안은 **자동으로 저장되거나 발송되지 않습니다.** "
-        "이 문서 안에서만 검토용으로 제공되며, 최종 확인과 전송은 반드시 사람이 직접 합니다."
+        "> ⚠️ 아래 초안은 **발송되지 않습니다.** Gmail 임시보관함에 초안으로 저장되며, "
+        "이 문서에도 텍스트로 남습니다(이중 기록). 최종 확인과 전송은 반드시 사람이 "
+        "Gmail 에서 직접 합니다."
     )
     out.append("")
     if not drafts:
@@ -86,6 +90,14 @@ def _draft_section(results: list[MailResult]) -> str:
         out.append(f"### {i}. {m.subject}")
         out.append(f"- 수신자(회신 대상): {m.sender}")
         out.append(f"- 회신 필요 이유: {r.reply.reason}")
+        if r.reply.draft_created:
+            out.append(
+                f"- Gmail 임시보관함: ✅ 초안 생성됨 (draft id: `{r.reply.draft_id}`)"
+            )
+        elif r.reply.draft_error:
+            out.append(f"- Gmail 임시보관함: ❌ 생성 실패 — {r.reply.draft_error}")
+        else:
+            out.append("- Gmail 임시보관함: (생성 시도 안 함)")
         out.append("")
         out.append("```text")
         out.append(r.reply.draft or "")
@@ -101,7 +113,7 @@ def build_report(results: list[MailResult], report_date: date_cls | None = None)
         "",
         f"- 생성 시각: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         f"- 대상 계정: {TARGET_GMAIL_ADDRESS or '(미설정)'}",
-        f"- 가져온 새 메일: {len(results)}건",
+        f"- 오늘 처리한 메일: {len(results)}건 (매시간 체크로 누적)",
         "",
         "## 전체 통계",
         "",
@@ -114,6 +126,51 @@ def build_report(results: list[MailResult], report_date: date_cls | None = None)
     return "\n".join(parts).rstrip() + "\n"
 
 
+def results_from_entries(entries: list[dict]) -> list["MailResult"]:
+    """
+    processed_log 의 entry dict 목록을 MailResult 목록으로 되살린다.
+    (리포트를 그날 처리분 누적으로 재생성할 때 사용)
+    """
+    out: list[MailResult] = []
+    for e in entries:
+        try:
+            recv = datetime.fromisoformat(e["received_at"])
+        except (KeyError, ValueError, TypeError):
+            recv = datetime.now()
+        mail = MailMessage(
+            id=e.get("id", ""),
+            thread_id=e.get("thread_id", ""),
+            sender=e.get("sender", ""),
+            subject=e.get("subject", "(제목 없음)"),
+            snippet="",
+            received_at=recv,
+            message_id_header="",
+        )
+        clf = Classification(
+            category=e.get("category", "기타"),
+            reason=e.get("classify_reason", ""),
+            method=e.get("classify_method", "llm"),
+            summary=e.get("summary"),
+        )
+        reply = None
+        status = e.get("reply_status")
+        if e.get("category") == "업무" and status not in (None, "not_applicable"):
+            reply = ReplyAssessment(
+                needs_reply=bool(e.get("needs_reply")),
+                reason=e.get("reply_reason", ""),
+                draft=e.get("draft_text"),
+                method=e.get("reply_method", "llm"),
+                draft_id=e.get("draft_id"),
+                draft_created=(status == "draft_created"),
+                draft_error=e.get("draft_error"),
+                already_replied=(status == "already_replied"),
+            )
+        out.append(MailResult(mail=mail, classification=clf, reply=reply))
+
+    out.sort(key=lambda r: r.mail.received_at, reverse=True)
+    return out
+
+
 def summarize(results: list[MailResult], report_date: date_cls | None = None) -> dict:
     """리포트의 핵심 수치만 담은 요약 dict. 카카오 알림 등에서 재사용한다."""
     report_date = report_date or date_cls.today()
@@ -123,21 +180,33 @@ def summarize(results: list[MailResult], report_date: date_cls | None = None) ->
     draft_count = sum(
         1 for r in results if r.reply and r.reply.needs_reply and r.reply.draft
     )
-
-    # 업무 메일: 우선순위 = 회신 필요 먼저, 그다음 최근 수신 먼저
-    work = [r for r in results if r.classification.category == "업무"]
-    work.sort(
-        key=lambda r: (
-            0 if (r.reply and r.reply.needs_reply) else 1,
-            -r.mail.received_at.timestamp(),
-        )
+    drafts_created = sum(
+        1 for r in results if r.reply and r.reply.draft_created
     )
+    drafts_failed = sum(
+        1 for r in results if r.reply and r.reply.draft and r.reply.draft_error
+    )
+    already_replied = sum(
+        1 for r in results if r.reply and r.reply.already_replied
+    )
+
+    # 업무 메일: 우선순위 = 회신 필요(초안) 먼저, 그다음 이미 답장 완료, 최근 수신 먼저
+    def _rank(r: MailResult) -> int:
+        if r.reply and (r.reply.draft_created or r.reply.draft_error):
+            return 0
+        if r.reply and r.reply.already_replied:
+            return 1
+        return 2
+
+    work = [r for r in results if r.classification.category == "업무"]
+    work.sort(key=lambda r: (_rank(r), -r.mail.received_at.timestamp()))
     work_mails = [
         {
             "sender": r.mail.sender,
             "subject": r.mail.subject,
             "summary": r.classification.summary,
             "needs_reply": bool(r.reply and r.reply.needs_reply),
+            "reply_status": r.reply.reply_status if r.reply else "not_applicable",
             "received_at": r.mail.received_str,
         }
         for r in work
@@ -149,6 +218,9 @@ def summarize(results: list[MailResult], report_date: date_cls | None = None) ->
         "total": len(results),
         "counts": counts,
         "reply_drafts": draft_count,
+        "drafts_created": drafts_created,
+        "drafts_failed": drafts_failed,
+        "already_replied": already_replied,
         "work_mails": work_mails,
     }
 

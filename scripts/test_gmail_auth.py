@@ -31,9 +31,21 @@ def main() -> int:
     service = get_gmail_service()
 
     profile = service.users().getProfile(userId="me").execute()
-    print(f"인증 성공: {profile.get('emailAddress')}")
+    account = profile.get("emailAddress")
+    print(f"인증 성공: {account}")
     print(f"전체 메시지 수 (계정 기준): {profile.get('messagesTotal')}")
-    print(f"전체 스레드 수 (계정 기준): {profile.get('threadsTotal')}\n")
+    print(f"전체 스레드 수 (계정 기준): {profile.get('threadsTotal')}")
+
+    from src.config import GMAIL_DRAFT_ACCOUNT
+    from src.gmail_auth import SCOPES
+
+    print(f"요청 스코프: {', '.join(s.rsplit('/', 1)[-1] for s in SCOPES)}")
+    if GMAIL_DRAFT_ACCOUNT and account and account.lower() != GMAIL_DRAFT_ACCOUNT.lower():
+        print(
+            f"⚠️  경고: 로그인 계정({account})이 GMAIL_DRAFT_ACCOUNT"
+            f"({GMAIL_DRAFT_ACCOUNT})과 다릅니다. 회신 초안 생성이 거부됩니다."
+        )
+    print()
 
     inbox = service.users().labels().get(userId="me", id="INBOX").execute()
     print("받은편지함(INBOX):")

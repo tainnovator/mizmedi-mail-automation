@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections import Counter
 from datetime import datetime
 
 import requests
@@ -209,9 +210,7 @@ def send_to_me(text: str, link_url: str = "https://mail.google.com/") -> None:
 # ---------------------------------------------------------------------------
 # 카카오 텍스트 템플릿의 text 필드 최대 길이(200자)에 맞춰 자른다.
 KAKAO_TEXT_LIMIT = 200
-# 업무 메일 요약은 최대 이 건수까지만 본문에 넣는다 (나머지는 "외 N건").
-MAX_WORK_LINES = 3
-# 한 줄(발신자 - 요약)의 최대 길이.
+# 한 줄(발신자 - 요약)의 최대 길이. 실제 표시 건수는 200자 예산이 결정한다.
 WORK_LINE_MAX = 58
 
 
@@ -241,42 +240,68 @@ def _work_line(item: dict) -> str:
     return line
 
 
-def format_summary_message(summary: dict) -> str:
-    counts = summary.get("counts", {})
-    header = "\n".join(
-        [
-            f"📮 미즈메디 메일 리포트 ({summary.get('date', '')})",
-            (
-                f"새 메일 {summary.get('total', 0)}건 · 업무 {counts.get('업무', 0)} "
-                f"/ 광고성 {counts.get('광고성', 0)} / 스팸 {counts.get('스팸', 0)} "
-                f"/ 기타 {counts.get('기타', 0)}"
-            ),
-            f"회신 초안 {summary.get('reply_drafts', 0)}건",
-        ]
-    )
-
-    work = summary.get("work_mails") or []
-    if not work:
-        return header[:KAKAO_TEXT_LIMIT]
-
-    candidates = work[:MAX_WORK_LINES]
-    msg = header + "\n\n[업무]"
+def _pack_section(
+    msg: str, title: str, lines: list[str], limit: int = KAKAO_TEXT_LIMIT
+) -> str:
+    """msg 뒤에 빈 줄 + title + 들어가는 만큼의 lines 를 붙인다. 못 담으면 '…외 N건'."""
+    if not lines:
+        return msg
+    candidate = msg + f"\n\n{title}"
+    if len(candidate) > limit:
+        return msg  # 섹션 제목조차 못 넣음
+    msg = candidate
     shown = 0
-    for i, item in enumerate(candidates):
-        line = _work_line(item)
-        # 이 줄을 보여줬을 때 남게 될 건수 → 그만큼 footer 자리를 미리 확보
-        remaining_after = len(work) - (i + 1)
-        footer = f"\n…외 {remaining_after}건은 리포트 참고" if remaining_after > 0 else ""
-        if len(msg) + len("\n" + line) + len(footer) > KAKAO_TEXT_LIMIT:
+    for i, line in enumerate(lines):
+        remaining_after = len(lines) - (i + 1)
+        tail = f"\n…외 {remaining_after}건" if remaining_after > 0 else ""
+        if len(msg) + len("\n" + line) + len(tail) > limit:
             break
         msg += "\n" + line
         shown += 1
+    leftover = len(lines) - shown
+    if leftover > 0 and len(msg) + len(f"\n…외 {leftover}건") <= limit:
+        msg += f"\n…외 {leftover}건"
+    return msg
 
-    leftover = len(work) - shown
-    if leftover > 0:
-        footer = f"\n…외 {leftover}건은 리포트 참고"
-        if len(msg) + len(footer) <= KAKAO_TEXT_LIMIT:
-            msg += footer
+
+_DRAFT_STATUSES = ("draft_created", "draft_failed", "needs_reply")
+
+
+def format_pending_notification(entries: list[dict]) -> str:
+    """
+    아직 알림에 포함되지 않은 항목들(processed_log.pending_notification())을
+    카카오 텍스트 한 통으로 요약한다. 200자 이내 보장.
+    """
+    if not entries:
+        return f"📮 미즈메디 메일 ({datetime.now():%H:%M} 기준)\n새로 확인된 메일 없음"
+
+    cats = Counter(e.get("category", "기타") for e in entries)
+    cat_str = " / ".join(
+        f"{c} {cats[c]}" for c in ("업무", "광고성", "스팸", "기타") if cats.get(c)
+    )
+    head = [
+        f"📮 미즈메디 메일 ({datetime.now():%H:%M} 기준)",
+        f"새로 확인 {len(entries)}건" + (f" · {cat_str}" if cat_str else ""),
+    ]
+
+    work = [e for e in entries if e.get("category") == "업무"]
+    drafts = [e for e in work if e.get("reply_status") in _DRAFT_STATUSES]
+    replied = [e for e in work if e.get("reply_status") == "already_replied"]
+    failed = sum(1 for e in work if e.get("reply_status") == "draft_failed")
+    if work:
+        parts = []
+        if drafts:
+            parts.append(f"회신 초안 {len(drafts)}건")
+        if replied:
+            parts.append(f"이미 답장 {len(replied)}건")
+        seg = "업무: " + (" · ".join(parts) if parts else "회신 불필요")
+        if failed:
+            seg += f" (초안 저장 실패 {failed})"
+        head.append(seg)
+
+    msg = "\n".join(head)
+    msg = _pack_section(msg, "[회신 초안]", [_work_line(e) for e in drafts])
+    msg = _pack_section(msg, "[이미 답장 완료]", [_work_line(e) for e in replied])
 
     if len(msg) > KAKAO_TEXT_LIMIT:  # 최종 안전장치
         msg = msg[: KAKAO_TEXT_LIMIT - 1] + "…"

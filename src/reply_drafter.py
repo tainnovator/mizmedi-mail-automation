@@ -3,14 +3,18 @@
 
 "업무"로 분류된 메일에 대해서만 호출한다.
 
+  - 안전장치: 먼저 thread_check.has_sent_reply_after() 로 "이미 직접 회신했는지"
+    확인한다. 그렇다면 LLM 호출·초안 생성을 건너뛰고 already_replied=True 로 리턴.
   - Claude API를 한 번 호출해 다음을 함께 받는다.
       needs_reply : 이 메일에 수신자가 회신해야 하는가 (true/false)
       reason      : 그렇게 판단한 이유 한 줄
       draft       : needs_reply 가 true 일 때만, 정중한 업무용 한국어 회신 초안
   - 본문은 mail_fetcher.fetch_body() 로 개별 조회해서 함께 전달한다.
+  - draft 가 있으면 (make_gmail_draft=True 인 경우) Gmail 임시보관함에도
+    실제 초안 메일을 만든다 (gmail_draft.create_reply_draft).
 
-중요: 이 초안은 어디에도 자동 저장·발송되지 않는다. 오직 리포트 문서 안에서
-사람이 검토하는 용도다.
+중요: 이 초안은 **발송되지 않는다.** 임시보관함에만 저장되고, 리포트 문서에도
+텍스트로 남는다(이중 기록). 최종 확인과 전송은 사람이 Gmail 에서 직접 한다.
 """
 
 from __future__ import annotations
@@ -19,7 +23,9 @@ import json
 from dataclasses import dataclass
 
 from .config import ANTHROPIC_API_KEY, DRAFTER_MODEL
+from .gmail_draft import create_reply_draft
 from .mail_fetcher import MailMessage, fetch_body
+from .thread_check import has_sent_reply_after
 
 
 @dataclass
@@ -27,7 +33,25 @@ class ReplyAssessment:
     needs_reply: bool
     reason: str
     draft: str | None  # needs_reply=True 일 때만 채워짐
-    method: str  # "llm" | "no-api-key" | "llm-error"
+    method: str  # "llm" | "no-api-key" | "llm-error" | "already-replied"
+    # Gmail 임시보관함 초안 생성 결과
+    draft_id: str | None = None  # 생성 성공 시 draft id
+    draft_created: bool = False
+    draft_error: str | None = None  # 생성 실패 시 사유
+    already_replied: bool = False  # 스레드에 수신 이후 내가 보낸 메시지가 있음
+
+    @property
+    def reply_status(self) -> str:
+        """processed_log / 리포트 / 카카오에서 쓰는 단일 상태 문자열."""
+        if self.already_replied:
+            return "already_replied"
+        if self.draft_created:
+            return "draft_created"
+        if self.draft and self.draft_error:
+            return "draft_failed"
+        if self.needs_reply:
+            return "needs_reply"  # 초안 텍스트는 있으나 생성 시도 안 함(테스트 등)
+        return "no_reply_needed"
 
 
 _SYSTEM_PROMPT = (
@@ -82,7 +106,12 @@ def _get_client():
     return _client
 
 
-def assess_reply(mail: MailMessage, service=None) -> ReplyAssessment:
+def assess_reply(
+    mail: MailMessage,
+    service=None,
+    make_gmail_draft: bool = False,
+    check_already_replied: bool = True,
+) -> ReplyAssessment:
     if not ANTHROPIC_API_KEY:
         return ReplyAssessment(
             needs_reply=False,
@@ -90,6 +119,25 @@ def assess_reply(mail: MailMessage, service=None) -> ReplyAssessment:
             draft=None,
             method="no-api-key",
         )
+
+    if service is None and (make_gmail_draft or check_already_replied):
+        from .gmail_auth import get_gmail_service
+
+        service = get_gmail_service()
+
+    # 안전장치: 이미 사용자가 직접 회신했으면 LLM 호출·초안 생성을 건너뛴다.
+    if check_already_replied and service is not None:
+        try:
+            if has_sent_reply_after(service, mail.thread_id, mail.received_at):
+                return ReplyAssessment(
+                    needs_reply=False,
+                    reason="스레드에 수신 이후 보낸 메시지가 있어 이미 직접 회신한 것으로 판단",
+                    draft=None,
+                    method="already-replied",
+                    already_replied=True,
+                )
+        except Exception:  # noqa: BLE001 - 확인 실패 시 안전하게 정상 경로로 진행
+            pass
 
     try:
         body = fetch_body(mail.id, service=service)
@@ -105,12 +153,6 @@ def assess_reply(mail: MailMessage, service=None) -> ReplyAssessment:
         )
         raw = "".join(b.text for b in resp.content if b.type == "text")
         needs, reason, draft = _parse_json(raw)
-        return ReplyAssessment(
-            needs_reply=needs,
-            reason=reason,
-            draft=draft if (needs and draft) else None,
-            method="llm",
-        )
     except Exception as e:  # noqa: BLE001
         return ReplyAssessment(
             needs_reply=False,
@@ -118,3 +160,22 @@ def assess_reply(mail: MailMessage, service=None) -> ReplyAssessment:
             draft=None,
             method="llm-error",
         )
+
+    assessment = ReplyAssessment(
+        needs_reply=needs,
+        reason=reason,
+        draft=draft if (needs and draft) else None,
+        method="llm",
+    )
+
+    # Gmail 임시보관함에 실제 초안 생성 (발송 아님)
+    if assessment.draft and make_gmail_draft:
+        try:
+            assessment.draft_id = create_reply_draft(
+                service, mail, assessment.draft
+            )
+            assessment.draft_created = True
+        except Exception as e:  # noqa: BLE001 - 초안 저장 실패해도 파이프라인은 계속
+            assessment.draft_error = f"{type(e).__name__}: {e}"
+
+    return assessment

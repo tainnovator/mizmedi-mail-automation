@@ -21,7 +21,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.classifier import classify  # noqa: E402
 from src.gmail_auth import get_gmail_service  # noqa: E402
-from src.mail_fetcher import fetch_new_messages, mark_processed  # noqa: E402
+from src.mail_fetcher import fetch_new_messages  # noqa: E402
+from src.processed_log import mark_processed  # noqa: E402
 from src.report import (  # noqa: E402
     MailResult,
     build_report,
@@ -61,7 +62,12 @@ def main() -> int:
         results.append(MailResult(mail=m, classification=c, reply=r))
         reply_note = ""
         if r is not None:
-            reply_note = "  [회신 필요]" if r.needs_reply else "  [회신 불필요]"
+            reply_note = "  [" + {
+                "already_replied": "이미 답장 완료",
+                "draft_created": "초안 생성",
+                "draft_failed": "초안 실패",
+                "needs_reply": "회신 필요",
+            }.get(r.reply_status, "회신 불필요") + "]"
         print(f"   - {c.category:<4} | {m.subject[:40]}{reply_note}")
 
     print("3) 리포트 생성 중...")
