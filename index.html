@@ -168,6 +168,15 @@
   }
   .note-box .dot{ color: var(--brass); font-weight:700; flex-shrink:0; }
 
+  /* ---------- gmail draft mockup ---------- */
+  .draft-card{
+    margin-top: 14px; max-width: 360px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 18px;
+  }
+  .draft-card .dc-head{ font-size: 12px; font-weight:600; color: var(--brass); margin-bottom: 10px; }
+  .draft-card .dc-subject{ font-size: 14.5px; font-weight:700; color: var(--ink); margin-bottom: 6px; }
+  .draft-card .dc-to{ font-size: 13px; color: var(--ink-soft); }
+
   /* ---------- setup steps ---------- */
   .setup{ margin-top: 8px; }
   .setup-step{ display:flex; gap:18px; padding: 26px 0; border-top:1px solid var(--line); }
@@ -221,7 +230,7 @@
 
 <div class="topbar">
   <div class="topbar-inner">
-    <div class="brand">미즈메디병원 업무 자동화 기록<span>행정원장실 · 2026</span></div>
+    <div class="brand">미즈메디병원 업무 자동화 기록<span>행정원장 · 2026</span></div>
     <div class="tabs" role="tablist">
       <button class="tab-btn" role="tab" aria-selected="true" id="tab-story" onclick="showPanel('story')">이야기</button>
       <button class="tab-btn" role="tab" aria-selected="false" id="tab-guide" onclick="showPanel('guide')">가이드</button>
@@ -235,7 +244,7 @@
   <div class="wrap hero reveal">
     <div class="kicker">업무 메일 자동화, 실제로 만들어본 기록</div>
     <h1>매일 아침, 메일함부터 열어야 했던 시간을 돌려받았습니다</h1>
-    <p class="lede">미즈메디병원 행정원장실이 직접 문제를 겪고, AI와 대화하며 직접 만든 업무 메일 자동화 이야기입니다. 개발 경험 없이도, 한 단계씩 확인하며 끝까지 완성했습니다.</p>
+    <p class="lede">미즈메디병원 행정원장이 직접 문제를 겪고, AI와 대화하며 직접 만든 업무 메일 자동화 이야기입니다. 개발 경험 없이도, 한 단계씩 확인하며 끝까지 완성했습니다.</p>
 
     <div class="ba-strip">
       <div class="ba-card before">
@@ -256,7 +265,7 @@
   </div>
 
   <div class="wrap section">
-    <h2>여덟 걸음의 여정</h2>
+    <h2>열 걸음의 여정</h2>
     <p class="intro">완벽한 설계도를 그리고 시작하지 않았습니다. 한 단계를 만들고, 실제로 돌려보고, 확인이 되면 다음 단계로 넘어가는 방식으로 진행했습니다.</p>
 
     <div class="timeline">
@@ -268,6 +277,8 @@
       <div class="tl-item"><div class="tl-num">6</div><h4>하나의 흐름으로 잇기</h4><p>메일 확인부터 카카오톡 알림까지, 따로 만들어둔 기능들을 하나로 이어서 처음부터 끝까지 자동으로 돌아가게 했습니다.</p></div>
       <div class="tl-item"><div class="tl-num">7</div><h4>매일 아침 스스로 실행되게</h4><p>컴퓨터가 매일 정해진 시간에 이 흐름을 스스로 실행하도록 예약해뒀습니다.</p></div>
       <div class="tl-item"><div class="tl-num">8</div><h4>조금 더 똑똑하게 다듬기</h4><p>업무 메일마다 1~2줄 핵심 요약을 알림에 함께 담아, 굳이 문서를 열지 않아도 내용을 바로 파악할 수 있도록 고도화했습니다.</p></div>
+      <div class="tl-item"><div class="tl-num">9</div><h4>초안까지 대신 써두게 하기</h4><p>읽기 권한만으로는 확인까지만 가능했는데, 여러 겹의 안전장치를 마련한 뒤 쓰기 권한까지 확장해서 회신이 필요한 메일은 임시보관함에 초안까지 미리 준비해두도록 했습니다. 물론 전송 버튼은 여전히 사람만 누릅니다.</p></div>
+      <div class="tl-item"><div class="tl-num">10</div><h4>확인은 자주, 알림은 드물게</h4><p>매시간 조용히 메일을 확인해 초안까지 준비해두고, 카카오톡 알림은 하루 세 번만 모아서 보내도록 역할을 나눴습니다. 알림이 너무 잦으면 오히려 안 보게 될 것 같다는 걱정과, 실시간으로 놓치고 싶지 않은 마음, 둘 다를 챙긴 결정이었습니다.</p></div>
     </div>
   </div>
 
@@ -276,8 +287,8 @@
     <p class="intro">순탄하지만은 않았습니다. 몇 가지는 재미있었고, 한 번은 정말 아찔했습니다.</p>
 
     <details class="te">
-      <summary>받은편지함에 "폴더"가 없다?</summary>
-      <div class="te-body">익숙한 메일 프로그램과 달리, 병원에서 쓰는 메일 시스템은 폴더가 아니라 "이름표(라벨)"를 붙이는 방식이었습니다. 당연하게 여겼던 개념부터 다시 확인해야 했습니다.</div>
+      <summary>두 메일 시스템의 정리 방식이 서로 달랐습니다</summary>
+      <div class="te-body">사내에서 쓰는 아마란스10은 메일이 온 순서대로 쌓이고, 필요하면 폴더를 만들어 따로 분류할 수 있는 방식이었습니다. 반면 자동전달을 받는 Gmail 쪽은 "스레드" 방식이라, 한 메일에 대한 답장들이 같은 묶음 안에 모여서 오히려 관리가 더 편했습니다. 다만 폴더는 없고, 대신 "라벨"을 붙여서 분류하는 구조였습니다. 당연하게 여겼던 개념부터 하나씩 다시 확인해야 했습니다.</div>
     </details>
     <details class="te">
       <summary>병원 전체 메일 시스템을 건드릴 뻔한 순간</summary>
@@ -291,6 +302,18 @@
       <summary>처음 보는 에러 코드와의 씨름</summary>
       <div class="te-body">낯선 에러 코드가 뜰 때마다 당황스러웠지만, 대부분은 설정 화면에서 항목 하나를 빠뜨렸거나 순서를 건너뛴 게 원인이었습니다. 하나씩 원인을 좁혀가며 해결했습니다.</div>
     </details>
+    <details class="te">
+      <summary>알림이 너무 잦아도, 너무 뜸해도 문제였습니다</summary>
+      <div class="te-body">메일이 올 때마다 알림이 오면 결국 안 보게 될 것 같았고, 그렇다고 하루 한 번만 확인하면 낮 시간에 놓치는 메일이 생겼습니다. "확인은 매시간 조용히, 알림은 하루 세 번만 모아서"로 역할을 나누고 나서야 두 걱정이 동시에 풀렸습니다.</div>
+    </details>
+    <details class="te">
+      <summary>이미 제가 직접 답장한 메일까지 또 초안을 만들 뻔했습니다</summary>
+      <div class="te-body">정해진 시간에 자동으로 확인하기 전에 제가 먼저 직접 답장을 보낸 적이 있었는데, 자동화가 이걸 모르고 또 초안을 만들려던 걸 발견했습니다. 초안을 만들기 전에 "혹시 이미 내가 답장한 메일인가"부터 먼저 확인하도록 안전장치를 하나 더 추가했습니다.</div>
+    </details>
+    <details class="te">
+      <summary>놀랄 필요 없는 일에 놀랄 뻔했습니다</summary>
+      <div class="te-body">자동화가 쓰는 계정 표시가 평소 보던 주소와 살짝 달라서 순간 "계정이 잘못됐나" 걱정했습니다. 확인해보니 이미 알고 있던 정상적인 메일 시스템 구조(같은 메일함의 별칭 주소)였을 뿐, 실제로는 아무 문제가 없었습니다. 걱정이 될 때 바로 고치기보다 먼저 확인하는 습관이 도움이 됐습니다.</div>
+    </details>
   </div>
 
   <div class="wrap section">
@@ -299,7 +322,13 @@
       <div class="lesson"><h4>비개발자도 만들 수 있습니다</h4><p>코드를 몰라도, 무엇이 필요한지 정확히 설명하고 AI와 함께 한 단계씩 확인하며 나아가면 실제로 동작하는 시스템을 완성할 수 있었습니다.</p></div>
       <div class="lesson"><h4>작게 나누는 게 결국 더 빨랐습니다</h4><p>한 번에 다 만들려 하지 않고, 한 단계씩 확인한 뒤 다음으로 넘어간 덕분에 문제가 생겨도 원인을 바로 찾을 수 있었습니다.</p></div>
       <div class="lesson"><h4>사람의 마지막 확인은 타협하지 않았습니다</h4><p>자동화가 하는 일은 정리와 초안까지이고, 확인과 전송, 승인은 항상 사람의 몫으로 남겨뒀습니다. 그래야 안심하고 계속 쓸 수 있었습니다.</p></div>
+      <div class="lesson"><h4>권한의 이름만 보고 안심하지 않았습니다</h4><p>"초안 작성" 권한 하나에도 생각보다 넓은 기능(예: 발송까지 포함)이 딸려 올 수 있다는 걸 알게 됐습니다. 권한 이름만 믿지 않고 실제로 무엇이 가능한지 확인한 뒤, 코드 안에서 한 번 더 막아두는 이중 안전장치를 뒀습니다.</p></div>
       <div class="lesson"><h4>완벽한 계획보다 실제로 돌려보는 게 빨랐습니다</h4><p>처음 세운 계획대로 되지 않은 부분이 많았지만, 그때그때 확인하며 방향을 바꿔서 결국 원하는 결과에 도달했습니다.</p></div>
+    </div>
+
+    <div class="ba-card after" style="margin-top:26px;">
+      <h3 style="font-family:var(--serif); font-size:19px; color:var(--brass); margin-bottom:10px;">완성은 끝이 아니라 시작이었습니다</h3>
+      <p>처음부터 완벽하게 만들 수는 없습니다. 기초 골격을 세우고 실제로 돌려본 뒤, 쓰면서 발견되는 불편함을 계속 다듬어가는 과정 자체가 자동화의 일부였습니다.</p>
     </div>
   </div>
 
@@ -320,9 +349,24 @@
         </div>
       </div>
     </div>
+    <p class="intro" style="margin-top:26px;">초안 자동 준비 기능을 더한 뒤로는, 이렇게 처리 상태까지 함께 보입니다.</p>
+    <div class="phone-wrap">
+      <div class="kakao-room">
+        <div class="kakao-bubble">
+          <div class="kt">🚩 미즈메디 메일 리포트 (2026-09-03)</div>
+          새 메일 5건 · 업무 3 / 광고성 2 / 스팸 0 / 기타 0<br>
+          업무 3건 (2건 회신 초안 준비, 1건 이미 답장 완료)
+          <hr>
+          [업무]<br>
+          · ○○○ - 다음 주 회의 일정 조율을 요청하였습니다. (초안 준비됨)<br>
+          · ○○○ - 자료 검토 후 회신을 요청하였습니다. (초안 준비됨)<br>
+          …외 1건은 리포트 참고
+        </div>
+      </div>
+    </div>
   </div>
 
-  <footer><div class="wrap">이 페이지는 미즈메디병원 행정원장실에서 실제 업무 자동화 경험을 바탕으로 작성했습니다. 화면 속 이름과 수치는 예시입니다.</div></footer>
+  <footer><div class="wrap">이 페이지는 미즈메디병원 행정원장에서 실제 업무 자동화 경험을 바탕으로 작성했습니다. 화면 속 이름과 수치는 예시입니다.</div></footer>
 </section>
 
 <!-- ================= GUIDE PANEL ================= -->
@@ -453,6 +497,12 @@
 [오늘 범위] 프로젝트 폴더 구조와 CLAUDE.md,
 .env.example 파일만 먼저 만들어줘."</div>
           <p class="aside">이렇게 요청하면 CLAUDE.md, .env.example, 폴더 구조가 자동으로 만들어집니다. 한 번에 다 시키지 말고, 오늘 할 범위를 매번 정해서 요청하는 게 핵심입니다.</p>
+          <p class="aside" style="margin-top:16px;">이렇게 단계를 밟아 나가면, 회신 초안은 결국 Gmail 임시보관함에 이런 모습으로 쌓입니다. (예시 값입니다)</p>
+          <div class="draft-card">
+            <div class="dc-head">✉️ Gmail 임시보관함 · 초안</div>
+            <div class="dc-subject">Re: [예시] 회의 일정 조율 부탁드립니다</div>
+            <div class="dc-to">받는사람: example@partner.com</div>
+          </div>
         </div>
       </div>
 
@@ -478,6 +528,9 @@
             <li>처음 실행 시 뜨는 브라우저 로그인 창에서 자동화 전용 계정으로 로그인 후 권한 허용</li>
             <li>카카오톡 "나와의 채팅방"에 실제로 메시지가 도착하는지 확인</li>
           </ul>
+          <p class="aside" style="margin-top:16px;">로그인이 정상적으로 끝나면 터미널에 이런 확인 메시지가 뜹니다. (예시 값입니다)</p>
+          <div class="prompt-box">인증 성공: example@yourcompany.com
+요청 스코프: gmail.readonly, gmail.compose</div>
         </div>
       </div>
 
@@ -505,7 +558,7 @@
     </div>
   </div>
 
-  <footer><div class="wrap">이 페이지는 미즈메디병원 행정원장실에서 실제 업무 자동화 경험을 바탕으로 작성했습니다.</div></footer>
+  <footer><div class="wrap">이 페이지는 미즈메디병원 행정원장에서 실제 업무 자동화 경험을 바탕으로 작성했습니다.</div></footer>
 </section>
 
 <script>
