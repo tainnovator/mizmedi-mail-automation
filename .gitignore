@@ -5,6 +5,9 @@ credentials/
 # 환경변수 (비밀번호·API 키·대상 주소)
 .env
 
+# 첨부파일 규칙 (실제 발신자 이메일 주소 포함 — 예시는 attachment_rules.example.json)
+config/attachment_rules.json
+
 # === Python ===
 .venv/
 venv/

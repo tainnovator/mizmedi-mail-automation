@@ -1,0 +1,8 @@
+[
+  {
+    "vendor": "시연용",
+    "sender_emails": ["example@example.com"],
+    "subject_keywords": ["거래명세표"],
+    "folder": "시연용"
+  }
+]

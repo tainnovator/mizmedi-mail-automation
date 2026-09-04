@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CREDENTIALS_DIR = ROOT_DIR / "credentials"
 DATA_DIR = ROOT_DIR / "data"
+CONFIG_DIR = ROOT_DIR / "config"
 
 # .env 로드 (없어도 에러는 아님 - 테스트 단계에서는 없을 수 있음)
 load_dotenv(ROOT_DIR / ".env")
@@ -91,3 +92,28 @@ KAKAO_REDIRECT_URI = os.getenv("KAKAO_REDIRECT_URI", "http://localhost:8888/call
 KAKAO_REFRESH_TOKEN = os.getenv("KAKAO_REFRESH_TOKEN", "")
 # access/refresh 토큰 캐시 (credentials/ 안 → git 제외)
 KAKAO_TOKEN_PATH = CREDENTIALS_DIR / "kakao_token.json"
+
+# --- 첨부파일 자동 저장 (config/attachment_rules.json) ---
+# 업체/발신자별 규칙 파일. 실제 이메일 주소가 들어가므로 git 제외 대상이다.
+# 구조 참고용으로 config/attachment_rules.example.json 을 커밋해둔다.
+ATTACHMENT_RULES_PATH = CONFIG_DIR / "attachment_rules.json"
+
+# message_id+attachment_id 기준 중복 저장 방지 기록 (run_daily.py 의
+# processed_ids.json 과는 별개 — 첨부파일 체크는 그 파이프라인과 독립적으로 돈다).
+ATTACHMENT_LOG_PATH = DATA_DIR / "attachment_log.json"
+
+# 첨부파일을 저장할 상위 폴더. 지금은 시연용 경로이고, 나중에 실제 업체용으로
+# 옮길 때 이 값만 바꾸면 된다 (필요하면 .env 의 ATTACHMENT_DOWNLOAD_ROOT 로 덮어쓸 수 있음).
+_attachment_download_root = os.getenv("ATTACHMENT_DOWNLOAD_ROOT")
+ATTACHMENT_DOWNLOAD_ROOT = (
+    Path(_attachment_download_root).expanduser()
+    if _attachment_download_root
+    else Path.home() / "Downloads" / "메일_자동정리_시연"
+)
+
+# 첨부파일 감지 대상 Gmail 검색 쿼리. 규칙과 무관하게 "첨부파일이 있는 최근 메일"을
+# 먼저 넓게 가져온 뒤, 규칙별 발신자/제목 조건을 각각 대조한다(부분 일치도 잡아내기 위해).
+ATTACHMENT_GMAIL_QUERY = os.getenv("ATTACHMENT_GMAIL_QUERY", "has:attachment newer_than:14d")
+
+# 다운로드 대상 첨부파일 확장자
+ALLOWED_ATTACHMENT_EXTENSIONS = frozenset({"pdf", "xlsx", "xls", "doc", "docx"})
